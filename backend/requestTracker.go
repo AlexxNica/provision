@@ -9,6 +9,7 @@ import (
 
 	"github.com/VictorLowther/jsonpatch2"
 	"github.com/digitalrebar/logger"
+	"github.com/digitalrebar/provision/backend/index"
 	"github.com/digitalrebar/provision/models"
 	"github.com/digitalrebar/store"
 )
@@ -30,6 +31,19 @@ func (rt *RequestTracker) Find(prefix, key string) models.Model {
 		res = s.Find(key)
 	}
 	return res
+}
+
+func (rt *RequestTracker) FindByIndex(prefix string, idx index.Maker, key string) models.Model {
+	items, err := index.Sort(idx)(rt.Index(prefix))
+	if err != nil {
+		rt.Errorf("Error sorting %s: %c", prefix, err)
+		return nil
+	}
+	return items.Find(key)
+}
+
+func (rt *RequestTracker) Index(name string) *index.Index {
+	return &rt.d(name).Index
 }
 
 func (rt *RequestTracker) Do(thunk func(Stores)) {
@@ -361,4 +375,14 @@ func (rt *RequestTracker) ApiURL(remoteIP net.IP) string {
 
 func (rt *RequestTracker) FileURL(remoteIP net.IP) string {
 	return rt.urlFor("http", remoteIP, rt.dt.StaticPort)
+}
+
+func (rt *RequestTracker) MachineForMac(mac string) *Machine {
+	rt.dt.macAddrMux.RLock()
+	defer rt.dt.macAddrMux.RUnlock()
+	m := rt.Find("machines", rt.dt.macAddrMap[mac])
+	if m != nil {
+		return AsMachine(m)
+	}
+	return nil
 }
