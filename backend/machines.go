@@ -517,6 +517,11 @@ func (n *Machine) BeforeSave() error {
 }
 func (n *Machine) AfterSave() {
 	n.oldStage = n.Stage
+	n.rt.dt.macAddrMux.Lock()
+	for _, mac := range n.HardwareAddrs {
+		n.rt.dt.macAddrMap[mac] = n.UUID()
+	}
+	n.rt.dt.macAddrMux.Unlock()
 }
 
 func (n *Machine) OnLoad() error {
@@ -545,6 +550,11 @@ func (n *Machine) OnLoad() error {
 		err = n.rt.stores("machines").backingStore.Save(n.Key(), n)
 		n.RestoreValidation(v)
 	}
+	n.rt.dt.macAddrMux.Lock()
+	for _, mac := range n.HardwareAddrs {
+		n.rt.dt.macAddrMap[mac] = n.UUID()
+	}
+	n.rt.dt.macAddrMux.Unlock()
 	return err
 }
 
@@ -606,6 +616,14 @@ func (n *Machine) AfterDelete() {
 		job.Current = false
 		n.rt.Save(job)
 	}
+	n.rt.dt.macAddrMux.Lock()
+	for _, mac := range n.HardwareAddrs {
+		if v, ok := n.rt.dt.macAddrMap[mac]; ok && v == n.UUID() {
+			delete(n.rt.dt.macAddrMap, mac)
+		}
+	}
+	n.rt.dt.macAddrMux.Unlock()
+
 }
 
 func AsMachine(o models.Model) *Machine {
